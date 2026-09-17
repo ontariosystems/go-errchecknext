@@ -1,0 +1,14 @@
+.idea
+*.iml
+*.swp
+*.orig
+*junit*.xml
+*.coverprofile
+
+.build*
+/bin/
+/pkg/
+/test_results/
+/test_coverage/
+/vendor/
+lint-report*.xml
