@@ -5,7 +5,17 @@ A lint tool to check that when an `error` is assigned, the next statement should
 Use this tool by running:
 
 ```shell
-go run github.com/ontariosystems/go-errchecknext -o lint-report-errchecknext.xml ./...
+go run github.com/ontariosystems/go-errchecknext@latest -o lint-report-errchecknext.xml ./...
+```
+
+This can also be used as a hook for [pre-commit](https://pre-commit.com/)
+
+```yaml
+repos:
+  - repo: https://github.com/ontariosystems/go-errchecknext
+    rev: v0.1.0
+    hooks:
+      - id: go-errchecknext
 ```
 
 ## Examples

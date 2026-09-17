@@ -1,0 +1,8 @@
+- id: go-errchecknext
+  name: go-errchecknext
+  description: A lint tool to check that when an error is assigned, the next statement should check the error
+  entry: go-errchecknext
+  types: [go]
+  language: golang
+  require_serial: true
+  pass_filenames: false

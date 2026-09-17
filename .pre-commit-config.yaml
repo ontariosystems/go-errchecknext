@@ -10,3 +10,7 @@ repos:
         args:
           - -local
           - golang.org,github.com
+  - repo: .
+    rev: v0.1.0-pre.0
+    hooks:
+      - id: go-errchecknext
