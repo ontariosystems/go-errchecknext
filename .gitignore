@@ -4,6 +4,7 @@
 *.orig
 *junit*.xml
 *.coverprofile
+coverprofile.out
 
 .build*
 /bin/

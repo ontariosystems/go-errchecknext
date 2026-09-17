@@ -1,0 +1,14 @@
+name: test
+description: tests isclib
+inputs:
+  go-version:
+    description: "the version of golang"
+    default: '1.27'
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v7
+      with:
+        go-version: ${{ inputs.go-version }}
+    - run: make test
+      shell: bash
