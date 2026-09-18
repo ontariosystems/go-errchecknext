@@ -3,6 +3,7 @@ output:
   formats:
     text:
       path: stdout
-run:
-  skip-dirs:
-    - internal/testdata
+linters:
+  exclusions:
+    paths:
+      - internal/testdata

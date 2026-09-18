@@ -4,6 +4,8 @@ NAME = go-errchecknext
 .PHONY: all
 all: lint test
 
+export GOPROXY=proxy.golang.org,direct
+
 .PHONY: test
 test:
 	go run github.com/onsi/ginkgo/v2/ginkgo run \

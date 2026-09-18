@@ -1,5 +1,5 @@
 name: test
-description: tests isclib
+description: tests go-errchecknext
 inputs:
   go-version:
     description: "the version of golang"
@@ -10,5 +10,11 @@ runs:
     - uses: actions/setup-go@v7
       with:
         go-version: ${{ inputs.go-version }}
-    - run: make test
+        cache-dependency-path: '**/go.sum'
+    - name: download test dependencies
+      run: go mod download
+      working-directory: internal/testdata
+      shell: bash
+    - name: test
+      run: make test
       shell: bash
