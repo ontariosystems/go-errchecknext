@@ -1,4 +1,4 @@
-package example
+package testdata
 
 func badNamedReturn() (err error) {
 	err = example()

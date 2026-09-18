@@ -1,4 +1,4 @@
-package example
+package testdata
 
 func goodInlineIf() error {
 	if err := example(); err != nil {

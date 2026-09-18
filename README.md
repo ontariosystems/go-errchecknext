@@ -43,4 +43,4 @@ if err != nil {
 defer resp.Body.Close()
 ```
 
-See [testdata](internal/testdata/src) for more good and bad examples
+See [testdata](internal/testdata) for more good and bad examples

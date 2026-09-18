@@ -1,4 +1,4 @@
-package example
+package testdata
 
 func goodIgnoreErrorMultipleLHS() error {
 	c, _ := exampleClosable()

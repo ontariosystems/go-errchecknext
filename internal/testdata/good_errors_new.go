@@ -1,4 +1,4 @@
-package example
+package testdata
 
 import "errors"
 

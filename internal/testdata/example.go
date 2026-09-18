@@ -1,4 +1,4 @@
-package example
+package testdata
 
 import (
 	"io"
@@ -7,6 +7,8 @@ import (
 func example() error {
 	return nil
 }
+
+func exampleMulti() (int, error) { return 0, nil }
 
 type testIO struct{}
 

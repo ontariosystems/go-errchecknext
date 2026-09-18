@@ -1,4 +1,4 @@
-package example
+package testdata
 
 func goodDeclared() error {
 	err := example()

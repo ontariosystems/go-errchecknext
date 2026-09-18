@@ -21,8 +21,19 @@ var (
 	errorInterface = errorObj.Type().Underlying().(*types.Interface)
 
 	ignoredCalls = map[string]struct{}{
-		"fmt.Errorf": {},
-		"errors.New": {},
+		"fmt.Errorf":  {},
+		"errors.New":  {},
+		"errors.Join": {},
+		"github.com/hashicorp/go-multierror.Append": {},
+		"github.com/hashicorp/errwrap.Wrap":         {},
+		"github.com/hashicorp/errwrap.Wrapf":        {},
+		"github.com/pkg/errors.Errorf":              {},
+		"github.com/pkg/errors.New":                 {},
+		"github.com/pkg/errors.WithMessage":         {},
+		"github.com/pkg/errors.WithMessagef":        {},
+		"github.com/pkg/errors.WithStack":           {},
+		"github.com/pkg/errors.Wrap":                {},
+		"github.com/pkg/errors.Wrapf":               {},
 	}
 )
 
@@ -94,7 +105,7 @@ func checkBlock(info *AnalysisInfo, file *ast.File, block *ast.BlockStmt) error 
 			continue
 		}
 
-		if !isErrCheck(info, stmts[i+1]) {
+		if !isAllowedNextStatement(info, stmts[i+1]) {
 			report(info, file, stmts[i+1].Pos(), noNextStatmentNotCheck)
 		}
 	}
@@ -127,6 +138,8 @@ func assignsErr(info *AnalysisInfo, stmt ast.Stmt) bool {
 	return false
 }
 
+// isErrorConstructor returns true if the RHS of the assignment is in the ignoredCalls map of
+// allowed error constructing functions.
 func isErrorConstructor(info *AnalysisInfo, assign *ast.AssignStmt) bool {
 	if len(assign.Rhs) != 1 {
 		return false
@@ -142,25 +155,30 @@ func isErrorConstructor(info *AnalysisInfo, assign *ast.AssignStmt) bool {
 	return ok
 }
 
+// functionObject returns the type object for either an identifier or selector
 func functionObject(info *AnalysisInfo, expr ast.Expr) types.Object {
 	switch fn := expr.(type) {
 	case *ast.Ident:
 		return info.TypesInfo.ObjectOf(fn)
-
 	case *ast.SelectorExpr:
 		return info.TypesInfo.ObjectOf(fn.Sel)
-
 	default:
 		return nil
 	}
 }
 
+// functionName returns the package and name of an object given its type
 func functionName(obj types.Object) string {
 	if obj == nil || obj.Pkg() == nil {
 		return ""
 	}
 
 	return obj.Pkg().Path() + "." + obj.Name()
+}
+
+// isAllowedNextStatement returns true if the statement is either an error check or returning the error
+func isAllowedNextStatement(info *AnalysisInfo, stmt ast.Stmt) bool {
+	return isErrCheck(info, stmt) || isErrReturn(info, stmt)
 }
 
 // isErrCheck returns true if a statement is an if that checks an error
@@ -171,6 +189,22 @@ func isErrCheck(info *AnalysisInfo, stmt ast.Stmt) bool {
 	}
 
 	return conditionReferencesErr(info, ifs.Cond)
+}
+
+// isErrReturn returns true if the statement returns the error
+func isErrReturn(info *AnalysisInfo, stmt ast.Stmt) bool {
+	ret, ok := stmt.(*ast.ReturnStmt)
+	if !ok {
+		return false
+	}
+
+	for _, result := range ret.Results {
+		if t := info.TypesInfo.TypeOf(result); t != nil && isErrorType(t) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // conditionReferencesErr returns true if a conditional expression references an error type

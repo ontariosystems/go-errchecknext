@@ -12,7 +12,6 @@ var _ = Describe("errchecknext", func() {
 			GinkgoTB(),
 			analysistest.TestData(),
 			internal.Analyzer,
-			"example",
 		)
 	})
 })

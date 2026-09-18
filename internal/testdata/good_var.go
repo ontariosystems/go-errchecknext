@@ -1,4 +1,4 @@
-package example
+package testdata
 
 func goodVar() error {
 	var err error
