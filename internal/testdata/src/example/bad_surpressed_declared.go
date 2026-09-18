@@ -1,6 +1,8 @@
 package example
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func badSurpressedDeclared() error {
 	err := example()

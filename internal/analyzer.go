@@ -19,6 +19,11 @@ var (
 
 	errorObj       = types.Universe.Lookup("error")
 	errorInterface = errorObj.Type().Underlying().(*types.Interface)
+
+	ignoredCalls = map[string]struct{}{
+		"fmt.Errorf": {},
+		"errors.New": {},
+	}
 )
 
 const (
@@ -103,6 +108,11 @@ func assignsErr(info *AnalysisInfo, stmt ast.Stmt) bool {
 		return false
 	}
 
+	if isErrorConstructor(info, assign) {
+
+		return false
+	}
+
 	for _, lhs := range assign.Lhs {
 		id, ok := lhs.(*ast.Ident)
 		if !ok || id.Name == "_" {
@@ -115,6 +125,42 @@ func assignsErr(info *AnalysisInfo, stmt ast.Stmt) bool {
 	}
 
 	return false
+}
+
+func isErrorConstructor(info *AnalysisInfo, assign *ast.AssignStmt) bool {
+	if len(assign.Rhs) != 1 {
+		return false
+	}
+
+	call, ok := assign.Rhs[0].(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+
+	fnObj := functionObject(info, call.Fun)
+	_, ok = ignoredCalls[functionName(fnObj)]
+	return ok
+}
+
+func functionObject(info *AnalysisInfo, expr ast.Expr) types.Object {
+	switch fn := expr.(type) {
+	case *ast.Ident:
+		return info.TypesInfo.ObjectOf(fn)
+
+	case *ast.SelectorExpr:
+		return info.TypesInfo.ObjectOf(fn.Sel)
+
+	default:
+		return nil
+	}
+}
+
+func functionName(obj types.Object) string {
+	if obj == nil || obj.Pkg() == nil {
+		return ""
+	}
+
+	return obj.Pkg().Path() + "." + obj.Name()
 }
 
 // isErrCheck returns true if a statement is an if that checks an error

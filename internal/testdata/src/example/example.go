@@ -1,6 +1,8 @@
 package example
 
-import "io"
+import (
+	"io"
+)
 
 func example() error {
 	return nil
