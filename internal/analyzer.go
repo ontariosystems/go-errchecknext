@@ -104,6 +104,10 @@ func assignsErr(info *AnalysisInfo, stmt ast.Stmt) bool {
 	}
 
 	for _, lhs := range assign.Lhs {
+		if id, ok := lhs.(*ast.Ident); ok && id.Name == "_" {
+			continue
+		}
+
 		if isErrorType(info.TypesInfo.TypeOf(lhs)) {
 			return true
 		}
