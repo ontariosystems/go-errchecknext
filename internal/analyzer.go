@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -52,25 +53,6 @@ type AnalysisInfo struct {
 	Report    func(analysis.Diagnostic)
 }
 
-// Analyze inspect code in packages specified by AnalysisInfo. Called either via the main function
-// or go's analyzer framework
-func Analyze(info *AnalysisInfo) (err error) {
-	for _, file := range info.Files {
-		ast.Inspect(file, func(n ast.Node) bool {
-			block, ok := n.(*ast.BlockStmt)
-			if !ok {
-				return true
-			}
-
-			if err = checkBlock(info, file, block); err != nil {
-				return false
-			}
-			return true
-		})
-	}
-	return
-}
-
 // run the main run method of the go analyzer framework, calls our Analyze method so we can use the
 // same logic from our main function
 func run(pass *analysis.Pass) (any, error) {
@@ -87,15 +69,59 @@ func run(pass *analysis.Pass) (any, error) {
 	return nil, nil
 }
 
+type funcInfo struct {
+	Type *ast.FuncType
+	Body *ast.BlockStmt
+}
+
+// Analyze inspect code in packages specified by AnalysisInfo. Called either via the main function
+// or go's analyzer framework
+func Analyze(info *AnalysisInfo) (err error) {
+	for _, file := range info.Files {
+		ast.Inspect(file, func(n ast.Node) bool {
+			fn, ok := n.(*ast.FuncDecl)
+			if !ok {
+				return true
+			}
+
+			fnInfo := &funcInfo{fn.Type, fn.Body}
+			if err = checkBlock(info, file, fnInfo, fn.Body); err != nil {
+				return false
+			}
+			return true
+		})
+	}
+	return
+}
+
 // checkBlock loops through all the statements in a block and reports findings if:
 //  1. the statement assigns an error variable; and either
 //  2. there is no following statement; or
 //  3. the following statement is not an if statement checking the error
-func checkBlock(info *AnalysisInfo, file *ast.File, block *ast.BlockStmt) error {
+func checkBlock(info *AnalysisInfo, file *ast.File, fnInfo *funcInfo, block *ast.BlockStmt) (err error) {
 	stmts := block.List
 
 	for i, stmt := range stmts {
-		if !assignsErr(info, stmt) {
+		ast.Inspect(stmt, func(n ast.Node) bool {
+			var nestedFnInfo *funcInfo
+			switch n := n.(type) {
+			case *ast.FuncLit:
+				nestedFnInfo = &funcInfo{n.Type, n.Body}
+			case *ast.BlockStmt:
+				nestedFnInfo = &funcInfo{fnInfo.Type, n}
+			default:
+				return true
+			}
+
+			if nestedErr := checkBlock(info, file, nestedFnInfo, nestedFnInfo.Body); nestedErr != nil {
+				err = errors.Join(err, nestedErr)
+				return false
+			}
+			return true
+		})
+
+		assignedErrObj := assignedErrorObject(info, stmt)
+		if assignedErrObj == nil {
 			continue
 		}
 
@@ -105,23 +131,22 @@ func checkBlock(info *AnalysisInfo, file *ast.File, block *ast.BlockStmt) error 
 			continue
 		}
 
-		if !isAllowedNextStatement(info, stmts[i+1]) {
+		if !isAllowedNextStatement(info, stmts[i+1], fnInfo, assignedErrObj) {
 			report(info, file, stmts[i+1].Pos(), noNextStatmentNotCheck)
 		}
 	}
 	return nil
 }
 
-// assignsErr returns true if a statement has an error variable assigned on the left-hand side
-func assignsErr(info *AnalysisInfo, stmt ast.Stmt) bool {
+// assignedErrorObject returns list of error objects assigned on the left-hand side
+func assignedErrorObject(info *AnalysisInfo, stmt ast.Stmt) types.Object {
 	assign, ok := stmt.(*ast.AssignStmt)
 	if !ok {
-		return false
+		return nil
 	}
 
 	if isErrorConstructor(info, assign) {
-
-		return false
+		return nil
 	}
 
 	for _, lhs := range assign.Lhs {
@@ -131,11 +156,11 @@ func assignsErr(info *AnalysisInfo, stmt ast.Stmt) bool {
 		}
 
 		if isErrorType(info.TypesInfo.TypeOf(id)) {
-			return true
+			return info.TypesInfo.ObjectOf(id)
 		}
 	}
 
-	return false
+	return nil
 }
 
 // isErrorConstructor returns true if the RHS of the assignment is in the ignoredCalls map of
@@ -177,8 +202,8 @@ func functionName(obj types.Object) string {
 }
 
 // isAllowedNextStatement returns true if the statement is either an error check or returning the error
-func isAllowedNextStatement(info *AnalysisInfo, stmt ast.Stmt) bool {
-	return isErrCheck(info, stmt) || isErrReturn(info, stmt)
+func isAllowedNextStatement(info *AnalysisInfo, stmt ast.Stmt, fnInfo *funcInfo, assignedErrObj types.Object) bool {
+	return isErrCheck(info, stmt) || isErrReturn(info, stmt, fnInfo, assignedErrObj)
 }
 
 // isErrCheck returns true if a statement is an if that checks an error
@@ -192,10 +217,14 @@ func isErrCheck(info *AnalysisInfo, stmt ast.Stmt) bool {
 }
 
 // isErrReturn returns true if the statement returns the error
-func isErrReturn(info *AnalysisInfo, stmt ast.Stmt) bool {
+func isErrReturn(info *AnalysisInfo, stmt ast.Stmt, fnInfo *funcInfo, assignedErrObj types.Object) bool {
 	ret, ok := stmt.(*ast.ReturnStmt)
 	if !ok {
 		return false
+	}
+
+	if isBareReturnOfAssignedError(info, stmt, fnInfo, assignedErrObj) {
+		return true
 	}
 
 	for _, result := range ret.Results {
@@ -205,6 +234,39 @@ func isErrReturn(info *AnalysisInfo, stmt ast.Stmt) bool {
 	}
 
 	return false
+}
+
+// namedErrorReturns returns list of obj references for named returns that are error type
+func namedErrorReturns(info *AnalysisInfo, fnInfo *funcInfo) (result []types.Object) {
+	if fnInfo.Type.Results == nil {
+		return
+	}
+
+	for _, field := range fnInfo.Type.Results.List {
+		if !isErrorType(info.TypesInfo.TypeOf(field.Type)) {
+			continue
+		}
+
+		for _, name := range field.Names {
+			result = append(result, info.TypesInfo.ObjectOf(name))
+		}
+	}
+
+	return
+}
+
+// isBareReturnOfAssignedError returns true if we have a bare return, named returns, and the error is one of the values
+func isBareReturnOfAssignedError(info *AnalysisInfo, stmt ast.Stmt, fnInfo *funcInfo, assignedErrObj types.Object) bool {
+	ret, ok := stmt.(*ast.ReturnStmt)
+	if !ok {
+		return false
+	}
+
+	if len(ret.Results) != 0 {
+		return false
+	}
+
+	return slices.Contains(namedErrorReturns(info, fnInfo), assignedErrObj)
 }
 
 // conditionReferencesErr returns true if a conditional expression references an error type

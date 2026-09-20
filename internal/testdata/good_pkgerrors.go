@@ -6,20 +6,20 @@ import (
 
 func goodPkgErrorsErrorf() error {
 	err := pkgerrors.Errorf("something bad happened")
-	_ = err
+	sink(err)
 	return err
 }
 
 func goodPkgErrorsNew() error {
 	err := pkgerrors.New("something bad happened")
-	_ = err
+	sink(err)
 	return err
 }
 
 func goodPkgErrorsWithMessage() error {
 	if err := example(); err != nil {
 		mErr := pkgerrors.WithMessage(err, "something bad happened")
-		_ = err
+		sink(err)
 		return mErr
 	}
 	return nil
@@ -28,7 +28,7 @@ func goodPkgErrorsWithMessage() error {
 func goodPkgErrorsWithMessagef() error {
 	if err := example(); err != nil {
 		mErr := pkgerrors.WithMessagef(err, "something bad happened, %d", 1)
-		_ = err
+		sink(mErr)
 		return mErr
 	}
 	return nil
@@ -37,7 +37,7 @@ func goodPkgErrorsWithMessagef() error {
 func goodPkgErrorsWithStack() error {
 	if err := example(); err != nil {
 		mErr := pkgerrors.WithStack(err)
-		_ = err
+		sink(mErr)
 		return mErr
 	}
 	return nil
@@ -46,7 +46,7 @@ func goodPkgErrorsWithStack() error {
 func goodPkgErrorsWrap() error {
 	if err := example(); err != nil {
 		mErr := pkgerrors.Wrap(err, "wrapped")
-		_ = err
+		sink(err)
 		return mErr
 	}
 	return nil
@@ -55,7 +55,7 @@ func goodPkgErrorsWrap() error {
 func goodPkgErrorsWrapf() error {
 	if err := example(); err != nil {
 		mErr := pkgerrors.Wrapf(err, "wrapped, %d", 1)
-		_ = err
+		sink(err)
 		return mErr
 	}
 	return nil

@@ -1,6 +1,8 @@
 package testdata
 
-func badNamedReturn() (err error) {
-	err = example()
-	return nil // want "statement between assignment to err and error check"
+var errBadBareReturn error
+
+func badBareReturn() (err error) {
+	errBadBareReturn = example()
+	return // want "statement between assignment to err and error check"
 }

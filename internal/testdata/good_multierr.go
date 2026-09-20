@@ -1,8 +1,6 @@
 package testdata
 
-import (
-	"github.com/hashicorp/go-multierror"
-)
+import "github.com/hashicorp/go-multierror"
 
 func goodMultierr() error {
 	var errs error

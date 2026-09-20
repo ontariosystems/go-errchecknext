@@ -2,7 +2,7 @@ package testdata
 
 import "fmt"
 
-func goodReturnErrorWrapped() error {
+func goodFmtErrorfWrapped() error {
 	err := fmt.Errorf("wrapped %w", example())
 	return err
 }

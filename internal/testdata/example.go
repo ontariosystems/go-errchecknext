@@ -16,3 +16,5 @@ func (*testIO) Close() error { return nil }
 func exampleClosable() (io.Closer, error) {
 	return &testIO{}, nil
 }
+
+func sink(_ any) {}
