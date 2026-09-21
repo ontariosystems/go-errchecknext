@@ -36,14 +36,7 @@ func main() {
 	wg := &sync.WaitGroup{}
 	for _, pkg := range pkgs {
 		wg.Go(func() {
-			info := &internal.AnalysisInfo{
-				Files:     pkg.Syntax,
-				Fset:      pkg.Fset,
-				TypesInfo: pkg.TypesInfo,
-				Collector: collector,
-			}
-
-			if err := internal.Analyze(info); err != nil {
+			if err := internal.NewAnalysisContextFromPkg(pkg).WithCollector(collector).Analyze(); err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "%s: %v\n", pkg.PkgPath, err)
 			}
 		})
