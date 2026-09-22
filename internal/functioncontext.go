@@ -102,6 +102,14 @@ func (fnCtx *FunctionContext) AnalyzeBlock(block *ast.BlockStmt) {
 	}
 }
 
+// isAllowedNextStatement returns true if the statement is either:
+//   - an error check;
+//   - returning the error; or
+//   - sending the error to a channel
+func (fnCtx *FunctionContext) isAllowedNextStatement(stmt ast.Stmt, assignedErrObj types.Object) bool {
+	return isErrCheck(fnCtx.Info.TypesInfo, stmt) || fnCtx.isErrReturn(stmt, assignedErrObj) || fnCtx.isErrSend(stmt, assignedErrObj)
+}
+
 // isErrReturn returns true if the statement returns the error
 func (fnCtx *FunctionContext) isErrReturn(stmt ast.Stmt, assignedErrObj types.Object) bool {
 	ret, ok := stmt.(*ast.ReturnStmt)
@@ -139,9 +147,18 @@ func (fnCtx *FunctionContext) isBareReturnOfAssignedError(stmt ast.Stmt, assigne
 	return ok
 }
 
-// isAllowedNextStatement returns true if the statement is either an error check or returning the error
-func (fnCtx *FunctionContext) isAllowedNextStatement(stmt ast.Stmt, assignedErrObj types.Object) bool {
-	return isErrCheck(fnCtx.Info.TypesInfo, stmt) || fnCtx.isErrReturn(stmt, assignedErrObj)
+// isErrSend returns true if the error is sent to a channel
+func (fnCtx *FunctionContext) isErrSend(stmt ast.Stmt, assignedErrObj types.Object) bool {
+	send, ok := stmt.(*ast.SendStmt)
+	if !ok {
+		return false
+	}
+	id, ok := send.Value.(*ast.Ident)
+	if !ok {
+		return false
+	}
+
+	return fnCtx.Info.TypesInfo.ObjectOf(id) == assignedErrObj
 }
 
 // report sends the code position to the analysis pass.Report or the Collector if not suppressed
